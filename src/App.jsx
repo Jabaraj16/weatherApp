@@ -1,14 +1,19 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { gsap } from 'gsap';
 import SearchBar from './components/SearchBar';
 import WeatherCard from './components/WeatherCard';
 import WeatherDetails from './components/WeatherDetails';
 import SunriseSunset from './components/SunriseSunset';
+import FiveDayForecast from './components/FiveDayForecast';
+import HourlyForecast from './components/HourlyForecast';
+import AirQualityCard from './components/AirQualityCard';
 import LoadingState from './components/LoadingState';
 import ErrorMessage from './components/ErrorMessage';
 import AnimatedBackground from './components/AnimatedBackground';
+import ThemeToggle from './components/ThemeToggle';
 import useWeather from './hooks/useWeather';
 import useGeolocation from './hooks/useGeolocation';
+import useForecast from './hooks/useForecast';
 
 /**
  * Main App Component
@@ -23,30 +28,49 @@ function App() {
   } = useWeather();
 
   const {
+    forecast,
+    loading: forecastLoading,
+    error: forecastError,
+    fetchForecastByCity,
+    fetchForecastByCoords,
+  } = useForecast();
+
+  const {
     coords,
     loading: geoLoading,
     error: geoError,
     retry: retryGeolocation,
   } = useGeolocation();
 
+  const [currentCity, setCurrentCity] = useState(null);
+
   // Auto-fetch weather when geolocation is available
   useEffect(() => {
     console.log('Geolocation coords:', coords);
-    if (coords && !weather) {
+    console.log('Current weather:', weather);
+    console.log('Loading states - geo:', geoLoading, 'weather:', loading);
+
+    if (coords && !weather && !loading) {
       console.log('Fetching weather for coords:', coords.lat, coords.lon);
       fetchWeatherByCoords(coords.lat, coords.lon);
+      fetchForecastByCoords(coords.lat, coords.lon);
     }
-  }, [coords, weather, fetchWeatherByCoords]);
+  }, [coords, weather, loading, fetchWeatherByCoords, fetchForecastByCoords, geoLoading]);
 
   // Handle city search
   const handleSearch = (city) => {
+    console.log('Searching for city:', city);
+    setCurrentCity(city);
     fetchWeatherByCity(city);
+    fetchForecastByCity(city);
   };
 
   // Handle location request
   const handleLocationRequest = () => {
+    console.log('Location button clicked. Coords:', coords);
     if (coords) {
       fetchWeatherByCoords(coords.lat, coords.lon);
+      fetchForecastByCoords(coords.lat, coords.lon);
     } else {
       retryGeolocation();
     }
@@ -67,8 +91,21 @@ function App() {
     );
   }, []);
 
+  // Debug: Log API key status
+  useEffect(() => {
+    const apiKey = import.meta.env.VITE_WEATHERAPI_KEY;
+    if (!apiKey || apiKey === 'your_api_key_here') {
+      console.error('⚠️ WeatherAPI.com API key not configured! Please add your API key to .env file');
+    } else {
+      console.log('✅ WeatherAPI.com API key is configured');
+    }
+  }, []);
+
   return (
     <div className="app-container min-h-screen relative">
+      {/* Theme Toggle */}
+      <ThemeToggle />
+
       {/* Animated Background */}
       <AnimatedBackground condition={weather?.condition || 'Clear'} />
 
@@ -89,7 +126,7 @@ function App() {
           <SearchBar
             onSearch={handleSearch}
             onLocationRequest={handleLocationRequest}
-            loading={loading || geoLoading}
+            loading={loading || geoLoading || forecastLoading}
           />
 
           {/* Content Area */}
@@ -104,6 +141,10 @@ function App() {
                 onRetry={() => {
                   if (coords) {
                     fetchWeatherByCoords(coords.lat, coords.lon);
+                    fetchForecastByCoords(coords.lat, coords.lon);
+                  } else if (currentCity) {
+                    fetchWeatherByCity(currentCity);
+                    fetchForecastByCity(currentCity);
                   }
                 }}
               />
@@ -121,17 +162,50 @@ function App() {
               </div>
             )}
 
+            {/* API Key Warning */}
+            {!import.meta.env.VITE_WEATHERAPI_KEY && !weather && !loading && !error && (
+              <div className="text-center px-4">
+                <div className="glass glass-border rounded-2xl p-6 max-w-md mx-auto border-2 border-yellow-500/50">
+                  <p className="text-yellow-300 font-semibold mb-2">⚠️ API Key Required</p>
+                  <p className="text-white/80 text-sm mb-4">
+                    Please add your WeatherAPI.com API key to the .env file:
+                  </p>
+                  <code className="text-white/60 text-xs bg-black/30 px-3 py-2 rounded block">
+                    VITE_WEATHERAPI_KEY=your_key_here
+                  </code>
+                  <p className="text-white/60 text-xs mt-3">
+                    Get a free key at: weatherapi.com/signup.aspx
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Weather Data */}
             {weather && !loading && (
-              <div className="space-y-6 md:space-y-8 px-4">
-                {/* Main Weather Card */}
-                <WeatherCard weather={weather} />
+              <div className="space-y-6 md:space-y-8">
+                {/* Current Weather */}
+                <div className="px-4 space-y-6">
+                  <WeatherCard weather={weather} />
+                  <WeatherDetails weather={weather} />
+                  <SunriseSunset weather={weather} />
+                </div>
 
-                {/* Weather Details Grid */}
-                <WeatherDetails weather={weather} />
+                {/* 5-Day Forecast */}
+                {forecast && forecast.forecast && (
+                  <FiveDayForecast forecast={forecast.forecast} />
+                )}
 
-                {/* Sunrise & Sunset */}
-                <SunriseSunset weather={weather} />
+                {/* Hourly Forecast */}
+                {forecast && forecast.forecast && forecast.forecast[0] && (
+                  <HourlyForecast hours={forecast.forecast[0].hour} />
+                )}
+
+                {/* Air Quality */}
+                {forecast && forecast.airQuality && (
+                  <div className="px-4">
+                    <AirQualityCard airQuality={forecast.airQuality} />
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -139,7 +213,7 @@ function App() {
           {/* Footer */}
           <footer className="text-center mt-12 md:mt-16 px-4">
             <p className="text-white/50 text-sm">
-              Powered by WeatherStack API
+              Powered by WeatherAPI.com
             </p>
           </footer>
         </div>

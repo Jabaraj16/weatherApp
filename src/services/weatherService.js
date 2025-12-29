@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-const API_KEY = import.meta.env.VITE_WEATHERSTACK_API_KEY;
-const BASE_URL = 'http://api.weatherstack.com';
+const API_KEY = import.meta.env.VITE_WEATHERAPI_KEY;
+const BASE_URL = 'https://api.weatherapi.com/v1';
 
 /**
- * Weather Service for WeatherStack API
+ * Weather Service for WeatherAPI.com
  */
 class WeatherService {
     /**
@@ -15,17 +15,13 @@ class WeatherService {
      */
     async getWeatherByCoords(lat, lon) {
         try {
-            const response = await axios.get(`${BASE_URL}/current`, {
+            const response = await axios.get(`${BASE_URL}/current.json`, {
                 params: {
-                    access_key: API_KEY,
-                    query: `${lat},${lon}`,
-                    units: 'm', // Metric units (Celsius)
+                    key: API_KEY,
+                    q: `${lat},${lon}`,
+                    aqi: 'no',
                 },
             });
-
-            if (response.data.error) {
-                throw new Error(response.data.error.info || 'Failed to fetch weather data');
-            }
 
             return this.transformWeatherData(response.data);
         } catch (error) {
@@ -40,17 +36,13 @@ class WeatherService {
      */
     async getWeatherByCity(city) {
         try {
-            const response = await axios.get(`${BASE_URL}/current`, {
+            const response = await axios.get(`${BASE_URL}/current.json`, {
                 params: {
-                    access_key: API_KEY,
-                    query: city,
-                    units: 'm', // Metric units (Celsius)
+                    key: API_KEY,
+                    q: city,
+                    aqi: 'no',
                 },
             });
-
-            if (response.data.error) {
-                throw new Error(response.data.error.info || 'Failed to fetch weather data');
-            }
 
             return this.transformWeatherData(response.data);
         } catch (error) {
@@ -67,7 +59,7 @@ class WeatherService {
         const location = data.location;
         const current = data.current;
 
-        // Calculate sunrise/sunset (WeatherStack doesn't provide this, using approximate times)
+        // WeatherAPI provides astronomy data, but we'll use approximate times for consistency
         const now = new Date();
         const sunrise = new Date(now);
         sunrise.setHours(6, 0, 0, 0);
@@ -78,47 +70,58 @@ class WeatherService {
         return {
             city: location.name,
             country: location.country,
-            temperature: Math.round(current.temperature),
-            feelsLike: Math.round(current.feelslike),
-            condition: this.mapWeatherDescription(current.weather_descriptions[0]),
-            description: current.weather_descriptions[0].toLowerCase(),
+            temperature: Math.round(current.temp_c),
+            feelsLike: Math.round(current.feelslike_c),
+            condition: this.mapWeatherCondition(current.condition.text),
+            description: current.condition.text.toLowerCase(),
             humidity: current.humidity,
-            windSpeed: Math.round(current.wind_speed / 3.6 * 10) / 10, // Convert km/h to m/s, round to 1 decimal
+            windSpeed: Math.round(current.wind_kph / 3.6 * 10) / 10, // Convert km/h to m/s, round to 1 decimal
             sunrise: Math.floor(sunrise.getTime() / 1000),
             sunset: Math.floor(sunset.getTime() / 1000),
-            timezone: location.utc_offset * 3600, // Convert hours to seconds
+            timezone: location.tz_id ? this.getTimezoneOffset(location.localtime) : 0,
             timestamp: Math.floor(new Date(location.localtime).getTime() / 1000),
             coords: {
-                lat: parseFloat(location.lat),
-                lon: parseFloat(location.lon),
+                lat: location.lat,
+                lon: location.lon,
             },
         };
     }
 
     /**
-     * Map WeatherStack weather descriptions to standard conditions
-     * @param {string} description - Weather description from API
+     * Get timezone offset from localtime
+     * @param {string} localtime - Local time string
+     * @returns {number} - Timezone offset in seconds
+     */
+    getTimezoneOffset(localtime) {
+        const local = new Date(localtime);
+        const utc = new Date(local.toUTCString());
+        return Math.floor((local - utc) / 1000);
+    }
+
+    /**
+     * Map WeatherAPI condition text to standard conditions
+     * @param {string} conditionText - Weather condition from API
      * @returns {string} - Standardized condition
      */
-    mapWeatherDescription(description) {
-        const desc = description.toLowerCase();
+    mapWeatherCondition(conditionText) {
+        const text = conditionText.toLowerCase();
 
-        if (desc.includes('sunny') || desc.includes('clear')) {
+        if (text.includes('sunny') || text.includes('clear')) {
             return 'Clear';
         }
-        if (desc.includes('cloud') || desc.includes('overcast')) {
+        if (text.includes('cloud') || text.includes('overcast')) {
             return 'Clouds';
         }
-        if (desc.includes('rain') || desc.includes('drizzle')) {
+        if (text.includes('rain') || text.includes('drizzle') || text.includes('shower')) {
             return 'Rain';
         }
-        if (desc.includes('thunder') || desc.includes('storm')) {
+        if (text.includes('thunder') || text.includes('storm')) {
             return 'Thunderstorm';
         }
-        if (desc.includes('snow') || desc.includes('sleet')) {
+        if (text.includes('snow') || text.includes('sleet') || text.includes('blizzard')) {
             return 'Snow';
         }
-        if (desc.includes('mist') || desc.includes('fog') || desc.includes('haze')) {
+        if (text.includes('mist') || text.includes('fog') || text.includes('haze')) {
             return 'Mist';
         }
 
@@ -131,17 +134,16 @@ class WeatherService {
      * @returns {Error} - Formatted error
      */
     handleError(error) {
-        if (error.message && !error.response) {
-            // Error from API response
-            return new Error(error.message);
-        }
-
         if (error.response) {
             // API responded with error
             const status = error.response.status;
+            const data = error.response.data;
 
-            if (status === 404) {
-                return new Error('Location not found. Please check the spelling and try again.');
+            if (status === 400) {
+                if (data.error && data.error.message) {
+                    return new Error(data.error.message);
+                }
+                return new Error('Invalid request. Please check the city name and try again.');
             }
             if (status === 401 || status === 403) {
                 return new Error('Invalid API key. Please check your configuration.');
