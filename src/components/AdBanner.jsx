@@ -1,14 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-/**
- * AdBanner Component
- * Displays a responsive Google AdSense banner ad at the bottom of the page
- * Features:
- * - Responsive ad sizing (mobile, tablet, desktop)
- * - Glassmorphism styling to match app design
- * - Fixed positioning at bottom
- * - Safe ad loading with error handling
- */
+
 const AdBanner = () => {
     const adRef = useRef(null);
 
