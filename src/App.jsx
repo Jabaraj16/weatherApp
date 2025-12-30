@@ -11,6 +11,7 @@ import LoadingState from './components/LoadingState';
 import ErrorMessage from './components/ErrorMessage';
 import AnimatedBackground from './components/AnimatedBackground';
 import ThemeToggle from './components/ThemeToggle';
+import AdBanner from './components/AdBanner';
 import useWeather from './hooks/useWeather';
 import useGeolocation from './hooks/useGeolocation';
 import useForecast from './hooks/useForecast';
@@ -110,7 +111,7 @@ function App() {
       <AnimatedBackground condition={weather?.condition || 'Clear'} />
 
       {/* Main Content */}
-      <div className="relative z-10 min-h-screen py-8 md:py-12">
+      <div className="relative z-10 min-h-screen py-8 md:py-12 pb-32">{/* Added pb-32 for ad space */}
         <div className="container mx-auto max-w-7xl">
           {/* Header */}
           <header className="text-center mb-8 md:mb-12 px-4">
@@ -218,6 +219,9 @@ function App() {
           </footer>
         </div>
       </div>
+
+      {/* AdSense Banner - Fixed at bottom */}
+      <AdBanner />
     </div>
   );
 }

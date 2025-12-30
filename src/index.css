@@ -142,3 +142,38 @@ body {
   transform: translateZ(0);
   will-change: transform;
 }
+
+/* AdSense Banner Styling */
+.ad-banner-container {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.1);
+  animation: slideUp 0.5s ease-out;
+}
+
+[data-theme="light"] .ad-banner-container {
+  background: rgba(255, 255, 255, 0.3);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.05);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive AdSense Styling */
+@media (max-width: 768px) {
+  .ad-banner-container {
+    padding: 0.5rem 1rem;
+  }
+}
