@@ -17,319 +17,329 @@ const AnimatedBackground = ({ condition }) => {
     useEffect(() => {
         if (!containerRef.current) return;
 
-        // Clear previous timeline
+        // Cleanup previous animations
         if (timelineRef.current) {
             timelineRef.current.kill();
         }
+        gsap.killTweensOf(containerRef.current);
+        gsap.killTweensOf(".weather-particle"); // Kill all particle animations
 
-        // Create new timeline based on weather type
+        // Create new timeline
         timelineRef.current = gsap.timeline();
+        const tl = timelineRef.current;
+
+        // Reset container (important for lightning to not get stuck)
+        gsap.set(containerRef.current, { clearProps: "backgroundColor" });
 
         switch (backgroundType) {
             case 'sunny':
-                animateSunny();
+                animateSunny(tl);
                 break;
             case 'cloudy':
-                animateCloudy();
+                animateCloudy(tl);
                 break;
             case 'rain':
-                animateRain();
+                animateRain(tl);
                 break;
             case 'thunderstorm':
-                animateThunderstorm();
+                animateThunderstorm(tl);
                 break;
             case 'snow':
-                animateSnow();
+                animateSnow(tl);
                 break;
             case 'fog':
-                animateFog();
+                animateFog(tl);
                 break;
             default:
-                animateCloudy();
+                animateCloudy(tl);
         }
 
         return () => {
             if (timelineRef.current) {
                 timelineRef.current.kill();
             }
+            gsap.killTweensOf(".weather-particle");
         };
     }, [backgroundType]);
 
-    // Sunny animation - rotating sun rays
-    const animateSunny = () => {
+    // --- Sunny Animation ---
+    const animateSunny = (tl) => {
         const particles = particlesRef.current;
+        const sunBeams = particles.filter(p => p && p.classList.contains('sun-beam'));
+        const sunOrb = particles.find(p => p && p.classList.contains('sun-orb'));
 
-        particles.forEach((particle, i) => {
-            gsap.to(particle, {
-                rotation: 360,
-                duration: 20 + i * 2,
-                repeat: -1,
-                ease: 'none',
-            });
-
-            gsap.to(particle, {
-                opacity: 0.3 + Math.random() * 0.4,
-                duration: 2 + Math.random() * 2,
+        // Sun Orb Glow
+        if (sunOrb) {
+            gsap.to(sunOrb, {
+                boxShadow: "0 0 100px 40px rgba(255, 200, 0, 0.6)",
+                duration: 3,
                 repeat: -1,
                 yoyo: true,
-                ease: 'sine.inOut',
+                ease: "sine.inOut"
             });
-        });
+        }
+
+        // Rotating Rays
+        if (sunBeams.length > 0) {
+            gsap.to(sunBeams, {
+                rotation: "+=360",
+                duration: 60,
+                repeat: -1,
+                ease: "none",
+                transformOrigin: "center center" // Ensure rotation is around the sun
+            });
+
+            sunBeams.forEach((beam) => {
+                gsap.to(beam, {
+                    opacity: 0.4 + Math.random() * 0.4,
+                    duration: 2 + Math.random() * 2,
+                    repeat: -1,
+                    yoyo: true,
+                    ease: "sine.inOut"
+                });
+            });
+        }
     };
 
-    // Cloudy animation - slow moving clouds
-    const animateCloudy = () => {
+    // --- Cloudy Animation ---
+    const animateCloudy = (tl) => {
         const particles = particlesRef.current;
+        const clouds = particles.filter(p => p && p.classList.contains('cloud'));
 
-        particles.forEach((particle, i) => {
-            gsap.fromTo(
-                particle,
+        clouds.forEach((cloud, i) => {
+            const speed = 40 + Math.random() * 40;
+            const startX = -300;
+
+            gsap.fromTo(cloud,
+                { x: startX },
                 {
-                    x: -200,
-                },
-                {
-                    x: window.innerWidth + 200,
-                    duration: 30 + i * 5,
+                    x: window.innerWidth + 300,
+                    duration: speed,
                     repeat: -1,
-                    ease: 'none',
-                    delay: i * 3,
+                    ease: "none",
+                    delay: -Math.random() * speed // Start at random positions
                 }
             );
         });
     };
 
-    // Rain animation - falling raindrops
-    const animateRain = () => {
+    // --- Rain Animation ---
+    const animateRain = (tl) => {
         const particles = particlesRef.current;
+        const drops = particles.filter(p => p && p.classList.contains('rain-drop'));
 
-        particles.forEach((particle, i) => {
-            const startY = -50 - Math.random() * 100;
-            const endY = window.innerHeight + 50;
+        drops.forEach((drop) => {
+            const duration = 0.5 + Math.random() * 0.5;
+            const delay = Math.random() * 2;
 
-            gsap.fromTo(
-                particle,
+            gsap.fromTo(drop,
+                { y: -100, x: Math.random() * window.innerWidth },
                 {
-                    y: startY,
-                    x: Math.random() * window.innerWidth,
-                },
-                {
-                    y: endY,
-                    duration: 1 + Math.random() * 0.5,
+                    y: window.innerHeight + 100,
+                    duration: duration,
                     repeat: -1,
-                    ease: 'none',
-                    delay: Math.random() * 2,
+                    ease: "none",
+                    delay: delay
                 }
             );
         });
     };
 
-    // Thunderstorm animation - lightning flashes + rain
-    const animateThunderstorm = () => {
-        const particles = particlesRef.current;
-
-        // Rain particles
-        particles.slice(0, 40).forEach((particle, i) => {
-            const startY = -50 - Math.random() * 100;
-            const endY = window.innerHeight + 50;
-
-            gsap.fromTo(
-                particle,
-                {
-                    y: startY,
-                    x: Math.random() * window.innerWidth,
-                },
-                {
-                    y: endY,
-                    duration: 0.8 + Math.random() * 0.4,
-                    repeat: -1,
-                    ease: 'none',
-                    delay: Math.random() * 2,
-                }
-            );
-        });
+    // --- Thunderstorm Animation ---
+    const animateThunderstorm = (tl) => {
+        // Reuse rain animation logic
+        animateRain(tl);
 
         // Lightning flashes
-        const lightning = () => {
+        const flash = () => {
+            // Random flash intensity and duration
+            const intensity = 0.4 + Math.random() * 0.4;
+            const flashDuration = 0.1 + Math.random() * 0.2;
+
             gsap.to(containerRef.current, {
-                backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                backgroundColor: `rgba(255, 255, 255, ${intensity})`,
                 duration: 0.1,
                 yoyo: true,
-                repeat: 1,
+                repeat: 3, // Several quick flashes
                 onComplete: () => {
-                    gsap.delayedCall(3 + Math.random() * 5, lightning);
-                },
+                    gsap.set(containerRef.current, { backgroundColor: "transparent" }); // Reset
+                    gsap.delayedCall(2 + Math.random() * 5, flash); // Schedule next flash
+                }
             });
         };
 
-        gsap.delayedCall(2, lightning);
+        // Start first flash after a short delay
+        gsap.delayedCall(1, flash);
     };
 
-    // Snow animation - floating snowflakes
-    const animateSnow = () => {
+    // --- Snow Animation ---
+    const animateSnow = (tl) => {
         const particles = particlesRef.current;
+        const flakes = particles.filter(p => p && p.classList.contains('snow-flake'));
 
-        particles.forEach((particle, i) => {
-            const startY = -50 - Math.random() * 100;
-            const endY = window.innerHeight + 50;
+        flakes.forEach((flake) => {
+            const duration = 5 + Math.random() * 5;
             const startX = Math.random() * window.innerWidth;
 
-            gsap.fromTo(
-                particle,
+            // Falling
+            gsap.fromTo(flake,
+                { y: -50, x: startX, rotation: 0 },
                 {
-                    y: startY,
-                    x: startX,
-                    rotation: 0,
-                },
-                {
-                    y: endY,
-                    x: startX + (Math.random() - 0.5) * 100,
+                    y: window.innerHeight + 50,
                     rotation: 360,
-                    duration: 5 + Math.random() * 3,
+                    duration: duration,
                     repeat: -1,
-                    ease: 'none',
-                    delay: Math.random() * 3,
+                    ease: "none",
+                    delay: Math.random() * 5
                 }
             );
+
+            // Swaying
+            gsap.to(flake, {
+                x: `+=${50 + Math.random() * 50}`, // Sway to right
+                duration: duration / 2,
+                repeat: -1,
+                yoyo: true,
+                ease: "sine.inOut"
+            });
         });
     };
 
-    // Fog animation - drifting fog layers
-    const animateFog = () => {
+    // --- Fog Animation ---
+    const animateFog = (tl) => {
         const particles = particlesRef.current;
+        const fogLayers = particles.filter(p => p && p.classList.contains('fog-layer'));
 
-        particles.forEach((particle, i) => {
-            gsap.fromTo(
-                particle,
+        fogLayers.forEach((layer, i) => {
+            const duration = 20 + i * 10;
+
+            gsap.fromTo(layer,
+                { x: -window.innerWidth * 0.5 },
                 {
-                    x: -300,
-                    opacity: 0.1,
-                },
-                {
-                    x: window.innerWidth + 300,
-                    opacity: 0.3,
-                    duration: 40 + i * 5,
+                    x: window.innerWidth * 0.5,
+                    duration: duration,
                     repeat: -1,
-                    ease: 'none',
-                    delay: i * 5,
+                    yoyo: true,
+                    ease: "sine.inOut"
                 }
             );
         });
     };
 
-    // Render particles based on weather type
+    // --- Render Logic ---
     const renderParticles = () => {
-        const count = backgroundType === 'rain' || backgroundType === 'thunderstorm' ? 50 :
-            backgroundType === 'snow' ? 30 :
-                backgroundType === 'fog' ? 5 : 8;
+        particlesRef.current = []; // Reset refs
 
-        return Array.from({ length: count }).map((_, i) => {
-            let particleStyle = {};
+        // Configuration for each weather type
+        switch (backgroundType) {
+            case 'sunny':
+                // Sun Orb + Rays
+                return (
+                    <div className="absolute top-[-10%] left-[80%] w-[500px] h-[500px] flex items-center justify-center transform -translate-x-1/2">
+                        {/* Sun Orb */}
+                        <div
+                            ref={el => particlesRef.current.push(el)}
+                            className="weather-particle sun-orb absolute w-32 h-32 bg-yellow-300 rounded-full blur-xl opacity-90 z-10"
+                        />
+                        {/* Rays */}
+                        {[...Array(12)].map((_, i) => (
+                            <div
+                                key={i}
+                                ref={el => particlesRef.current.push(el)}
+                                className="weather-particle sun-beam absolute w-[800px] h-[40px] bg-gradient-to-r from-yellow-200/40 to-transparent blur-md transform origin-left"
+                                style={{ transform: `rotate(${i * 30}deg) translateX(50px)` }}
+                            />
+                        ))}
+                    </div>
+                );
 
-            switch (backgroundType) {
-                case 'sunny':
-                    particleStyle = {
-                        position: 'absolute',
-                        top: '10%',
-                        left: '50%',
-                        width: '400px',
-                        height: '4px',
-                        background: 'linear-gradient(90deg, transparent, rgba(255, 220, 100, 0.6), transparent)',
-                        transformOrigin: '0 0',
-                        transform: `rotate(${i * (360 / count)}deg)`,
-                    };
-                    break;
+            case 'cloudy':
+                // Moving Clouds
+                return [...Array(8)].map((_, i) => (
+                    <div
+                        key={i}
+                        ref={el => particlesRef.current.push(el)}
+                        className="weather-particle cloud absolute rounded-full blur-[40px]"
+                        style={{
+                            top: `${10 + Math.random() * 40}%`,
+                            width: `${200 + Math.random() * 300}px`,
+                            height: `${100 + Math.random() * 100}px`,
+                            background: 'rgba(255, 255, 255, 0.15)',
+                        }}
+                    />
+                ));
 
-                case 'cloudy':
-                    particleStyle = {
-                        position: 'absolute',
-                        top: `${10 + i * 15}%`,
-                        left: '-200px',
-                        width: `${150 + Math.random() * 100}px`,
-                        height: `${60 + Math.random() * 40}px`,
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: '50%',
-                        filter: 'blur(20px)',
-                    };
-                    break;
+            case 'rain':
+            case 'thunderstorm':
+                // Raindrops
+                return [...Array(100)].map((_, i) => (
+                    <div
+                        key={i}
+                        ref={el => particlesRef.current.push(el)}
+                        className="weather-particle rain-drop absolute w-[1px] bg-blue-200/50"
+                        style={{
+                            height: `${10 + Math.random() * 20}px`, // Varying lengths
+                        }}
+                    />
+                ));
 
-                case 'rain':
-                case 'thunderstorm':
-                    particleStyle = {
-                        position: 'absolute',
-                        top: '-50px',
-                        left: `${Math.random() * 100}%`,
-                        width: '2px',
-                        height: `${20 + Math.random() * 20}px`,
-                        background: 'rgba(174, 194, 224, 0.6)',
-                        borderRadius: '2px',
-                    };
-                    break;
+            case 'snow':
+                // Snowflakes
+                return [...Array(50)].map((_, i) => (
+                    <div
+                        key={i}
+                        ref={el => particlesRef.current.push(el)}
+                        className="weather-particle snow-flake absolute bg-white rounded-full blur-[1px]"
+                        style={{
+                            width: `${4 + Math.random() * 6}px`,
+                            height: `${4 + Math.random() * 6}px`,
+                            opacity: 0.6 + Math.random() * 0.4
+                        }}
+                    />
+                ));
 
-                case 'snow':
-                    particleStyle = {
-                        position: 'absolute',
-                        top: '-50px',
-                        left: `${Math.random() * 100}%`,
-                        width: `${6 + Math.random() * 6}px`,
-                        height: `${6 + Math.random() * 6}px`,
-                        background: 'rgba(255, 255, 255, 0.8)',
-                        borderRadius: '50%',
-                        boxShadow: '0 0 10px rgba(255, 255, 255, 0.5)',
-                    };
-                    break;
+            case 'fog':
+                // Fog Layers
+                return [...Array(3)].map((_, i) => (
+                    <div
+                        key={i}
+                        ref={el => particlesRef.current.push(el)}
+                        className="weather-particle fog-layer absolute w-[200vw] left-[-50vw] h-screen bg-gradient-to-t from-gray-400/20 via-gray-300/10 to-transparent blur-[80px]"
+                        style={{
+                            top: 0
+                        }}
+                    />
+                ));
 
-                case 'fog':
-                    particleStyle = {
-                        position: 'absolute',
-                        top: `${20 + i * 20}%`,
-                        left: '-300px',
-                        width: '600px',
-                        height: '200px',
-                        background: 'rgba(200, 200, 200, 0.2)',
-                        borderRadius: '50%',
-                        filter: 'blur(60px)',
-                    };
-                    break;
-
-                default:
-                    particleStyle = {};
-            }
-
-            return (
-                <div
-                    key={i}
-                    ref={(el) => (particlesRef.current[i] = el)}
-                    style={particleStyle}
-                    className="gpu-accelerated no-select"
-                />
-            );
-        });
+            default:
+                return null;
+        }
     };
 
-    // Background gradient based on weather
     const getGradient = () => {
         switch (backgroundType) {
             case 'sunny':
-                return 'linear-gradient(to bottom, #1e3a8a, #f59e0b, #fbbf24)';
+                return 'linear-gradient(to bottom, #3b82f6, #60a5fa, #93c5fd)'; // Bright Blue Sky
             case 'cloudy':
-                return 'linear-gradient(to bottom, #374151, #6b7280, #9ca3af)';
+                return 'linear-gradient(to bottom, #475569, #64748b, #94a3b8)'; // Grayish Blue
             case 'rain':
-                return 'linear-gradient(to bottom, #1e293b, #334155, #475569)';
+                return 'linear-gradient(to bottom, #1e293b, #334155, #475569)'; // Dark Slate
             case 'thunderstorm':
-                return 'linear-gradient(to bottom, #1f2937, #4c1d95, #5b21b6)';
+                return 'linear-gradient(to bottom, #0f172a, #1e1b4b, #312e81)'; // Deep Purple/Dark Blue
             case 'snow':
-                return 'linear-gradient(to bottom, #dbeafe, #bfdbfe, #93c5fd)';
+                return 'linear-gradient(to bottom, #bfdbfe, #dbeafe, #eff6ff)'; // Icy Blue
             case 'fog':
-                return 'linear-gradient(to bottom, #4b5563, #6b7280, #9ca3af)';
+                return 'linear-gradient(to bottom, #6b7280, #9ca3af, #d1d5db)'; // Gray Fog
             default:
-                return 'linear-gradient(to bottom, #374151, #6b7280, #9ca3af)';
+                return 'linear-gradient(to bottom, #3b82f6, #60a5fa)';
         }
     };
+
 
     return (
         <div
             ref={containerRef}
-            className="fixed inset-0 -z-10 overflow-hidden transition-all duration-1000"
+            className="fixed inset-0 -z-10 overflow-hidden transition-colors duration-1000"
             style={{
                 background: getGradient(),
             }}
